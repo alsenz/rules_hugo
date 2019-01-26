@@ -1,7 +1,7 @@
-def copy_to_dir(ctx, srcs, dirname):
+def copy_to_dir(ctx, srcs, relative_root):
     outs = []
     for i in srcs:
-        o = ctx.actions.declare_file(dirname + "/" + i.basename)
+        o = ctx.actions.declare_file(i.path[len(relative_root)+1:])
         ctx.action(
             inputs = [i],
             outputs = [o],
@@ -27,11 +27,11 @@ def _hugo_site_impl(ctx):
     hugo_inputs.append(config_file)
 
     # Copy all the files over
-    content_files = copy_to_dir(ctx, ctx.files.content, "content")
-    static_files = copy_to_dir(ctx, ctx.files.static, "static")
-    image_files = copy_to_dir(ctx, ctx.files.images, "images")
-    layout_files = copy_to_dir(ctx, ctx.files.layouts, "layouts")
-    data_files = copy_to_dir(ctx, ctx.files.data, "data")
+    content_files = copy_to_dir(ctx, ctx.files.content, ctx.file.config.dirname)
+    static_files = copy_to_dir(ctx, ctx.files.static, ctx.file.config.dirname)
+    image_files = copy_to_dir(ctx, ctx.files.images, ctx.file.config.dirname)
+    layout_files = copy_to_dir(ctx, ctx.files.layouts, ctx.file.config.dirname)
+    data_files = copy_to_dir(ctx, ctx.files.data, ctx.file.config.dirname)
     hugo_inputs += content_files + static_files + image_files + layout_files + data_files
 
     # Copy the theme
@@ -55,11 +55,9 @@ def _hugo_site_impl(ctx):
     # Prepare hugo command
     hugo_outputdir = ctx.actions.declare_directory(ctx.label.name)
     hugo_args += [
-        "--config", config_file.path,
-        "--contentDir", "/".join([config_file.dirname, "content"]),
-        "--themesDir", "/".join([config_file.dirname, "themes"]),
-        "--layoutDir", "/".join([config_file.dirname, "layouts"]),
-        "--destination", hugo_outputdir.path,
+        "--source", config_file.dirname,
+        "--themesDir", "themes",
+        "--destination", hugo_outputdir.basename
     ]
 
     if ctx.attr.quiet:
@@ -68,7 +66,7 @@ def _hugo_site_impl(ctx):
         hugo_args.append("--verbose")
     if ctx.attr.base_url:
         hugo_args.append("--baseURL", ctx.attr.base_url)
-
+    
     ctx.actions.run(
         mnemonic = "GoHugo",
         progress_message = "Generating hugo site",
@@ -76,7 +74,9 @@ def _hugo_site_impl(ctx):
         arguments = hugo_args,
         inputs = hugo_inputs,
         outputs = [hugo_outputdir],
+	execution_requirements = {"no-sandbox": "1"}
     )
+    
 
     return [DefaultInfo(files = depset([hugo_outputdir]))]
 
