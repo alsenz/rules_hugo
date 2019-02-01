@@ -42,7 +42,9 @@ def _hugo_site_impl(ctx):
             if i.short_path.startswith("../"):
                 o_filename = "/".join(["themes", theme.name] + i.short_path.split("/")[2:])
             else:
-                o_filename = "/".join(["themes", theme.name, i.short_path])
+                # This was wrong before.... short_path is relative to the execution root, which is might be under 5 files! The themese should just go in the directory to which they glob....
+                # so I've had to hack this with a hard-coded 2 since my theme folder is static-site/biztrox from the exec root!
+                o_filename = "/".join(["themes", theme.name] + i.short_path.split("/")[2:])
             o = ctx.actions.declare_file(o_filename)
             ctx.action(
                 inputs = [i],
